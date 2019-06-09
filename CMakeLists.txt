@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.0)
 project(udp_forwarder_ng)
 find_package(rlib)
 

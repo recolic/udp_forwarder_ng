@@ -81,8 +81,11 @@ public:
                 const auto &recvSideKey = recvSideIsListenSide ? lKey : rKey;
                 const auto &sendSideKey = recvSideIsListenSide ? rKey : lKey;
 
+                sockaddr_storage peer_addr;
+                socklen_t peer_addr_len;
+
                 try {
-                    auto size = recvfrom(recvFd, buffer, DGRAM_BUFFER_SIZE, 0, nullptr, nullptr);
+                    auto size = recvfrom(recvFd, buffer, DGRAM_BUFFER_SIZE, 0, (sockaddr *)&peer_addr, &peer_addr_len);
                     if(size == -1) {
                         throw std::runtime_error("ERR: recvfrom returns -1. "s + strerror(errno));
                     }
@@ -90,7 +93,7 @@ public:
                     string bufferStr (std::begin(buffer), std::begin(buffer) + size);
                     crypto.convertL2R(bufferStr, recvSideKey, sendSideKey);
 
-                    size = sendto(anotherFd, bufferStr.data(), bufferStr.size(), 0, nullptr, 0);
+                    size = sendto(anotherFd, bufferStr.data(), bufferStr.size(), 0, (sockaddr *)&peer_addr, peer_addr_len);
                     if(size == -1) {
                         throw std::runtime_error("ERR: sendto returns -1. "s + strerror(errno));
                     }
