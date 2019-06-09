@@ -1,6 +1,8 @@
 #include <iostream>
 #include <rlib/stdio.hpp>
 #include <rlib/opt.hpp>
+#include "Forwarder.hpp"
+
 using namespace rlib::literals;
 
 int main(int argc, char **argv) {
@@ -14,6 +16,9 @@ int main(int argc, char **argv) {
     auto serverPort = args.getValueArg("-P").as<uint16_t>();
     auto lPassword = args.getValueArg("-lp");
     auto rPassword = args.getValueArg("-rp");
+
+    Forwarder fwd(listenAddr, listenPort, serverAddr, serverPort, lPassword, rPassword);
+    fwd.run();
 
     return 0;
 }
