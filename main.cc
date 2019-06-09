@@ -9,6 +9,7 @@ int main(int argc, char **argv) {
     rlib::opt_parser args(argc, argv);
     if(args.getBoolArg("--help", "-h")) {
         rlib::println("Usage: {} -l listenAddr -p listenPort -s serverAddr -P serverPort -lp LPassword -rp R(emote)Password"_rs.format(args.getSelf()));
+        return 0;
     }
     auto listenAddr = args.getValueArg("-l");
     auto listenPort = args.getValueArg("-p").as<uint16_t>();

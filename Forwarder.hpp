@@ -31,17 +31,21 @@ public:
 
 private:
     auto setup_epoll(fd_t listenFd, fd_t serverFd) {
-        auto epollFd = epoll_create1(NULL);
+        auto epollFd = epoll_create1(0);
         if(epollFd == -1)
             throw std::runtime_error("Failed to create epoll fd.");
 
         // setup epoll.
         epoll_event eventL {
             .events = EPOLLIN,
-            .data.fd = listenFd,
+            .data = {
+                    .fd = listenFd,
+            }
         }, eventS {
             .events = EPOLLIN,
-            .data.fd = serverFd,
+            .data = {
+                    .fd = serverFd,
+            }
         };
         auto ret1 = epoll_ctl(epollFd, EPOLL_CTL_ADD, listenFd, &eventL);
         auto ret2 = epoll_ctl(epollFd, EPOLL_CTL_ADD, serverFd, &eventS);
@@ -78,7 +82,7 @@ public:
                 const auto &sendSideKey = recvSideIsListenSide ? rKey : lKey;
 
                 try {
-                    auto size = recvfrom(recvFd, buffer, DGRAM_BUFFER_SIZE, NULL, NULL, NULL);
+                    auto size = recvfrom(recvFd, buffer, DGRAM_BUFFER_SIZE, 0, nullptr, nullptr);
                     if(size == -1) {
                         throw std::runtime_error("ERR: recvfrom returns -1. "s + strerror(errno));
                     }
@@ -86,7 +90,7 @@ public:
                     string bufferStr (std::begin(buffer), std::begin(buffer) + size);
                     crypto.convertL2R(bufferStr, recvSideKey, sendSideKey);
 
-                    size = sendto(anotherFd, bufferStr.data(), bufferStr.size(), NULL, NULL, NULL);
+                    size = sendto(anotherFd, bufferStr.data(), bufferStr.size(), 0, nullptr, 0);
                     if(size == -1) {
                         throw std::runtime_error("ERR: sendto returns -1. "s + strerror(errno));
                     }
