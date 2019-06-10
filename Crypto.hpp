@@ -35,7 +35,6 @@ public:
         if(!lKey.empty()) {
             decrypt(data, lKey);
         }
-        rlib::println("DEBUG> FLOWING DATA:", data);
         if(!rKey.empty()) {
             encrypt(data, rKey);
         }

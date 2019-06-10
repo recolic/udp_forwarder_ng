@@ -12,9 +12,15 @@
 #include <rlib/stdio.hpp>
 #include <thread>
 #include "Crypto.hpp"
+#include <unordered_map>
 
 using std::string;
 using namespace std::literals;
+
+template <typename MapType, typename ElementType>
+bool MapContains(const MapType &map, ElementType &&element) {
+    return (map.find(std::forward<ElementType>(element)) != map.cend());
+}
 
 class Forwarder {
 public:
@@ -31,34 +37,27 @@ public:
     }
 
 private:
-    static auto setup_epoll(fd_t clientFd, fd_t serverFd) {
+    static void epoll_add_fd(fd_t epollFd, fd_t fd) {
+        epoll_event event {
+            .events = EPOLLIN,
+            .data = {
+                    .fd = fd,
+            }
+        };
+        auto ret1 = epoll_ctl(epollFd, EPOLL_CTL_ADD, fd, &event);
+        if(ret1 == -1)
+            throw std::runtime_error("epoll_ctl failed.");
+    }
+
+public:
+    [[noreturn]] void run() {
+        auto listenFd = rlib::quick_listen(listenAddr, listenPort, true);
+        rlib_defer([=]{close(listenFd);});
+
         auto epollFd = epoll_create1(0);
         if(epollFd == -1)
             throw std::runtime_error("Failed to create epoll fd.");
-
-        // setup epoll.
-        epoll_event eventC {
-            .events = EPOLLIN,
-            .data = {
-                    .fd = clientFd,
-            }
-        }, eventS {
-            .events = EPOLLIN,
-            .data = {
-                    .fd = serverFd,
-            }
-        };
-        auto ret1 = epoll_ctl(epollFd, EPOLL_CTL_ADD, clientFd, &eventC);
-        auto ret2 = epoll_ctl(epollFd, EPOLL_CTL_ADD, serverFd, &eventS);
-        if(ret1 == -1 or ret2 == -1)
-            throw std::runtime_error("epoll_ctl failed.");
-        return epollFd;
-    }
-
-    [[noreturn]] void forwardWorker(fd_t clientFd, fd_t serverFd) {
-        rlib_defer([=]{close(clientFd); close(serverFd);});
-
-        auto epollFd = setup_epoll(clientFd, serverFd);
+        epoll_add_fd(epollFd, listenFd);
 
         constexpr size_t MAX_EVENTS = 16;
         epoll_event events[MAX_EVENTS];
@@ -68,6 +67,29 @@ private:
         char buffer[DGRAM_BUFFER_SIZE];
         // WARN: If you want to modify this program to work for both TCP and UDP, PLEASE use rlib::sockIO::recv instead of fixed buffer.
 
+        // Map from serverSession to clientSession.
+        // If I see a packet from client, throw it to server.
+        // If I see a packet from server, I have to determine which client to throw it.
+        // So I have to record the map between client and server, one-to-one.
+        struct clientInfo {
+            sockaddr_storage addr; socklen_t len;
+            bool operator==(const clientInfo &another) const {
+                return std::memcmp(this, &another, sizeof(clientInfo)) == 0;
+            }
+        };
+        struct clientInfoHash {std::size_t operator()(const clientInfo &info) const {return *(std::size_t*)&info.addr;}}; // hash basing on port number and part of ip (v4/v6) address.
+        std::unordered_map<clientInfo, fd_t, clientInfoHash> client2server;
+        std::unordered_map<fd_t, clientInfo> server2client;
+        auto connForNewClient = [&, this](const clientInfo &info) {
+            auto serverFd = rlib::quick_connect(serverAddr, serverPort, true);
+            client2server.insert(std::make_pair(info, serverFd));
+            server2client.insert(std::make_pair(serverFd, info));
+            epoll_add_fd(epollFd, serverFd);
+            return serverFd;
+        };
+
+        rlib::println("Forwarding server working...");
+
         // Main loop!
         while(true) {
             auto nfds = epoll_wait(epollFd, events, MAX_EVENTS, -1);
@@ -76,21 +98,52 @@ private:
 
             for(auto cter = 0; cter < nfds; ++cter) {
                 const auto recvFd = events[cter].data.fd;
-                const auto recvSideIsClientSide = recvFd != serverFd;
-                const auto anotherFd = recvSideIsClientSide ? serverFd : clientFd;
+                const auto recvSideIsClientSide = server2client.find(recvFd) == server2client.end(); // is not server
                 const auto &recvSideKey = recvSideIsClientSide ? lKey : rKey;
                 const auto &sendSideKey = recvSideIsClientSide ? rKey : lKey;
 
                 try {
-                    auto size = recv(recvFd, buffer, DGRAM_BUFFER_SIZE, 0);
-                    if(size == -1) {
-                        throw std::runtime_error("ERR: recvfrom returns -1. "s + strerror(errno));
+                    size_t size;
+                    fd_t anotherFd;
+                    sockaddr *sendtoAddr = nullptr;
+                    socklen_t sendtoAddrLen = 0;
+                    // Recv
+                    if(recvSideIsClientSide) {
+                        // Client to Server packet.
+                        clientInfo info;
+                        size = recvfrom(recvFd, buffer, DGRAM_BUFFER_SIZE, 0, (sockaddr *)&info.addr, &info.len);
+                        if(size == -1)
+                            throw std::runtime_error("ERR: recvfrom returns -1. "s + strerror(errno));
+                        auto pos = client2server.find(info);
+                        if(pos == client2server.end())
+                            anotherFd = connForNewClient(info);
+                        else
+                            anotherFd = pos->second;
+                    }
+                    else {
+                        // Server to Client packet.
+                        size = recvfrom(recvFd, buffer, DGRAM_BUFFER_SIZE, 0, nullptr, nullptr);
+                        if(size == -1)
+                            throw std::runtime_error("ERR: recvfrom returns -1. "s + strerror(errno));
+                        clientInfo &info = server2client.at(recvFd);
+                        sendtoAddr = (sockaddr *)&info.addr;
+                        sendtoAddrLen = info.len;
+                        anotherFd = listenFd;
                     }
 
+                    // Encrypt/Decrypt
                     string bufferStr (std::begin(buffer), std::begin(buffer) + size);
                     crypto.convertL2R(bufferStr, recvSideKey, sendSideKey);
 
-                    size = send(anotherFd, bufferStr.data(), bufferStr.size(), 0);
+                    // Send
+                    if(recvSideIsClientSide) {
+                        // Client to Server packet.
+                        size = send(anotherFd, bufferStr.data(), bufferStr.size(), 0);
+                    }
+                    else {
+                        // Server to Client packet.
+                        size = sendto(anotherFd, bufferStr.data(), bufferStr.size(), 0, sendtoAddr, sendtoAddrLen);
+                    }
                     if(size == -1) {
                         throw std::runtime_error("ERR: sendto returns -1. "s + strerror(errno));
                     }
@@ -103,20 +156,6 @@ private:
                 }
             }
         }
-    }
-public:
-    [[noreturn]] void run() {
-        auto listenFd = rlib::quick_listen(listenAddr, listenPort, true);
-
-        rlib::println("Forwarding server working...");
-
-        while(true) {
-            // One session, one connection.
-            auto clientFd = rlib::quick_accept(listenFd);
-            auto serverFd = rlib::quick_connect(serverAddr, serverPort, true);
-            std::thread(&Forwarder::forwardWorker, this, clientFd, serverFd);
-        }
-
     }
 
 
