@@ -68,6 +68,14 @@ public:
         constexpr size_t DGRAM_BUFFER_SIZE = 20480; // 20KiB
         char buffer[DGRAM_BUFFER_SIZE];
 
+        // deal with sockaddr.
+        sockaddr_storage listen_sockaddr, server_sockaddr;
+        socklen_t listen_socklen = sizeof(listen_sockaddr), server_socklen = sizeof(server_sockaddr);
+        auto ret = getsockname(listenFd, (sockaddr *)&listen_sockaddr, &listen_socklen) +
+                getsockname(serverFd, (sockaddr *)&server_sockaddr, &server_socklen);
+        if(ret != 0)
+            throw std::runtime_error("getsockname failed.");
+
         // Main loop!
         while(true) {
             auto nfds = epoll_wait(epollFd, events, MAX_EVENTS, -1);
@@ -75,17 +83,14 @@ public:
                 throw std::runtime_error("epoll_wait failed.");
 
             for(auto cter = 0; cter < nfds; ++cter) {
-                auto recvFd = events[cter].data.fd;
-                auto recvSideIsListenSide = recvFd == listenFd;
-                auto anotherFd = recvSideIsListenSide ? serverFd : listenFd;
+                const auto recvFd = events[cter].data.fd;
+                const auto recvSideIsListenSide = recvFd == listenFd;
+                const auto anotherFd = recvSideIsListenSide ? serverFd : listenFd;
                 const auto &recvSideKey = recvSideIsListenSide ? lKey : rKey;
                 const auto &sendSideKey = recvSideIsListenSide ? rKey : lKey;
 
-                sockaddr_storage peer_addr;
-                socklen_t peer_addr_len;
-
                 try {
-                    auto size = recvfrom(recvFd, buffer, DGRAM_BUFFER_SIZE, 0, (sockaddr *)&peer_addr, &peer_addr_len);
+                    auto size = recvfrom(recvFd, buffer, DGRAM_BUFFER_SIZE, 0, nullptr, nullptr);
                     if(size == -1) {
                         throw std::runtime_error("ERR: recvfrom returns -1. "s + strerror(errno));
                     }
@@ -93,7 +98,9 @@ public:
                     string bufferStr (std::begin(buffer), std::begin(buffer) + size);
                     crypto.convertL2R(bufferStr, recvSideKey, sendSideKey);
 
-                    size = sendto(anotherFd, bufferStr.data(), bufferStr.size(), 0, (sockaddr *)&peer_addr, peer_addr_len);
+                    size = sendto(anotherFd, bufferStr.data(), bufferStr.size(), 0,
+                            (sockaddr *)(recvSideIsListenSide ? &server_sockaddr : &listen_sockaddr),
+                            recvSideIsListenSide ? server_socklen : listen_socklen);
                     if(size == -1) {
                         throw std::runtime_error("ERR: sendto returns -1. "s + strerror(errno));
                     }
