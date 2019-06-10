@@ -76,6 +76,8 @@ public:
         if(ret != 0)
             throw std::runtime_error("getsockname failed.");
 
+        rlib::println("Forwarding server working...");
+
         // Main loop!
         while(true) {
             auto nfds = epoll_wait(epollFd, events, MAX_EVENTS, -1);
@@ -90,7 +92,7 @@ public:
                 const auto &sendSideKey = recvSideIsListenSide ? rKey : lKey;
 
                 try {
-                    auto size = recvfrom(recvFd, buffer, DGRAM_BUFFER_SIZE, 0, nullptr, nullptr);
+                    auto size = recv(recvFd, buffer, DGRAM_BUFFER_SIZE, 0);
                     if(size == -1) {
                         throw std::runtime_error("ERR: recvfrom returns -1. "s + strerror(errno));
                     }
@@ -98,14 +100,15 @@ public:
                     string bufferStr (std::begin(buffer), std::begin(buffer) + size);
                     crypto.convertL2R(bufferStr, recvSideKey, sendSideKey);
 
-                    size = sendto(anotherFd, bufferStr.data(), bufferStr.size(), 0,
-                            (sockaddr *)(recvSideIsListenSide ? &server_sockaddr : &listen_sockaddr),
-                            recvSideIsListenSide ? server_socklen : listen_socklen);
+                    //size = sendto(anotherFd, bufferStr.data(), bufferStr.size(), 0,
+                    //        (sockaddr *)(recvSideIsListenSide ? &server_sockaddr : &listen_sockaddr),
+                    //        recvSideIsListenSide ? server_socklen : listen_socklen);
+                    size = send(anotherFd, bufferStr.data(), bufferStr.size(), 0);
                     if(size == -1) {
                         throw std::runtime_error("ERR: sendto returns -1. "s + strerror(errno));
                     }
                     if(size != bufferStr.size()) {
-                        rlib::println("ERR: sendto not sent all data.");
+                        rlib::println("WARN: sendto not sent all data.");
                     }
                 }
                 catch(std::exception &e) {
