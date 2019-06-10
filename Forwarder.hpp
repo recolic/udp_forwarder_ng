@@ -74,14 +74,24 @@ public:
         struct clientInfo {
             sockaddr_storage addr; socklen_t len;
             bool operator==(const clientInfo &another) const {
-                return std::memcmp(this, &another, sizeof(clientInfo)) == 0;
+                if(len != another.len) return false;
+                return std::memcmp(&addr, &another.addr, len) == 0;
+            }
+            bool isNull() const {
+                for(auto cter = 0; cter < sizeof(addr); ++cter) {
+                    if(cter[(char *)&addr] != 0)
+                        return false;
+                }
+                return true;
             }
         };
         struct clientInfoHash {std::size_t operator()(const clientInfo &info) const {return *(std::size_t*)&info.addr;}}; // hash basing on port number and part of ip (v4/v6) address.
         std::unordered_map<clientInfo, fd_t, clientInfoHash> client2server;
         std::unordered_map<fd_t, clientInfo> server2client;
         auto connForNewClient = [&, this](const clientInfo &info) {
+            if(info.isNull()) throw std::runtime_error("Invalid client info");
             auto serverFd = rlib::quick_connect(serverAddr, serverPort, true);
+            rlib::println("creating new connection...");
             client2server.insert(std::make_pair(info, serverFd));
             server2client.insert(std::make_pair(serverFd, info));
             epoll_add_fd(epollFd, serverFd);
