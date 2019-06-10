@@ -27,3 +27,15 @@ cmake .. && make
 If you run OpenVPN and udp_forwarder on the same PC, you won't access the Internet successfully.
 If you did it, please think again and you'll realize how stupid you are.
 
+## Naive performance test
+
+Note: the connection setup procedure maybe a little slow, but it doesn't matter.
+
+- Latency
+
+with proxy: (encrypted OpenVPN + encrypted&obfs udp_forwarder_ng) 70.386ms
+
+without proxy: 0.475ms + 68.578ms = 69.053ms
+
+overhead (OpenVPN+Forwarder): 1.333ms
+
