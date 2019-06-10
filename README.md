@@ -8,7 +8,7 @@ so I needn't do it again.
 
 ## Design
 
-![explain.png](TODO)
+![explain.png](https://raw.githubusercontent.com/recolic/udp_forwarder_ng/master/res/explain.png)
 
 ## Build
 
@@ -18,9 +18,9 @@ cmake .. && make
 ./udp_forwarder_ng [args ...]
 ```
 
-## Usual Deployment
+## Common Deployment
 
-![solu.png](TODO)
+![solu.png](https://raw.githubusercontent.com/recolic/udp_forwarder_ng/master/res/solu.png)
 
 ## Common mistake
 
