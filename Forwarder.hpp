@@ -10,6 +10,7 @@
 #include <rlib/sys/sio.hpp>
 #include <sys/epoll.h>
 #include <rlib/stdio.hpp>
+#include <thread>
 #include "Crypto.hpp"
 
 using std::string;
@@ -30,16 +31,16 @@ public:
     }
 
 private:
-    auto setup_epoll(fd_t listenFd, fd_t serverFd) {
+    static auto setup_epoll(fd_t clientFd, fd_t serverFd) {
         auto epollFd = epoll_create1(0);
         if(epollFd == -1)
             throw std::runtime_error("Failed to create epoll fd.");
 
         // setup epoll.
-        epoll_event eventL {
+        epoll_event eventC {
             .events = EPOLLIN,
             .data = {
-                    .fd = listenFd,
+                    .fd = clientFd,
             }
         }, eventS {
             .events = EPOLLIN,
@@ -47,19 +48,17 @@ private:
                     .fd = serverFd,
             }
         };
-        auto ret1 = epoll_ctl(epollFd, EPOLL_CTL_ADD, listenFd, &eventL);
+        auto ret1 = epoll_ctl(epollFd, EPOLL_CTL_ADD, clientFd, &eventC);
         auto ret2 = epoll_ctl(epollFd, EPOLL_CTL_ADD, serverFd, &eventS);
         if(ret1 == -1 or ret2 == -1)
             throw std::runtime_error("epoll_ctl failed.");
         return epollFd;
     }
 
-public:
-    [[noreturn]] void run() {
-        // setup connections.
-        auto listenFd = rlib::quick_listen(listenAddr, listenPort, true);
-        auto serverFd = rlib::quick_connect(serverAddr, serverPort, true);
-        auto epollFd = setup_epoll(listenFd, serverFd);
+    [[noreturn]] void forwardWorker(fd_t clientFd, fd_t serverFd) {
+        rlib_defer([=]{close(clientFd); close(serverFd);});
+
+        auto epollFd = setup_epoll(clientFd, serverFd);
 
         constexpr size_t MAX_EVENTS = 16;
         epoll_event events[MAX_EVENTS];
@@ -67,16 +66,7 @@ public:
         // DGRAM packet usually smaller than 1400B.
         constexpr size_t DGRAM_BUFFER_SIZE = 20480; // 20KiB
         char buffer[DGRAM_BUFFER_SIZE];
-
-        // deal with sockaddr.
-        sockaddr_storage listen_sockaddr, server_sockaddr;
-        socklen_t listen_socklen = sizeof(listen_sockaddr), server_socklen = sizeof(server_sockaddr);
-        auto ret = getsockname(listenFd, (sockaddr *)&listen_sockaddr, &listen_socklen) +
-                getsockname(serverFd, (sockaddr *)&server_sockaddr, &server_socklen);
-        if(ret != 0)
-            throw std::runtime_error("getsockname failed.");
-
-        rlib::println("Forwarding server working...");
+        // WARN: If you want to modify this program to work for both TCP and UDP, PLEASE use rlib::sockIO::recv instead of fixed buffer.
 
         // Main loop!
         while(true) {
@@ -86,10 +76,10 @@ public:
 
             for(auto cter = 0; cter < nfds; ++cter) {
                 const auto recvFd = events[cter].data.fd;
-                const auto recvSideIsListenSide = recvFd == listenFd;
-                const auto anotherFd = recvSideIsListenSide ? serverFd : listenFd;
-                const auto &recvSideKey = recvSideIsListenSide ? lKey : rKey;
-                const auto &sendSideKey = recvSideIsListenSide ? rKey : lKey;
+                const auto recvSideIsClientSide = recvFd != serverFd;
+                const auto anotherFd = recvSideIsClientSide ? serverFd : clientFd;
+                const auto &recvSideKey = recvSideIsClientSide ? lKey : rKey;
+                const auto &sendSideKey = recvSideIsClientSide ? rKey : lKey;
 
                 try {
                     auto size = recv(recvFd, buffer, DGRAM_BUFFER_SIZE, 0);
@@ -100,9 +90,6 @@ public:
                     string bufferStr (std::begin(buffer), std::begin(buffer) + size);
                     crypto.convertL2R(bufferStr, recvSideKey, sendSideKey);
 
-                    //size = sendto(anotherFd, bufferStr.data(), bufferStr.size(), 0,
-                    //        (sockaddr *)(recvSideIsListenSide ? &server_sockaddr : &listen_sockaddr),
-                    //        recvSideIsListenSide ? server_socklen : listen_socklen);
                     size = send(anotherFd, bufferStr.data(), bufferStr.size(), 0);
                     if(size == -1) {
                         throw std::runtime_error("ERR: sendto returns -1. "s + strerror(errno));
@@ -116,6 +103,20 @@ public:
                 }
             }
         }
+    }
+public:
+    [[noreturn]] void run() {
+        auto listenFd = rlib::quick_listen(listenAddr, listenPort, true);
+
+        rlib::println("Forwarding server working...");
+
+        while(true) {
+            // One session, one connection.
+            auto clientFd = rlib::quick_accept(listenFd);
+            auto serverFd = rlib::quick_connect(serverAddr, serverPort, true);
+            std::thread(&Forwarder::forwardWorker, this, clientFd, serverFd);
+        }
+
     }
 
 

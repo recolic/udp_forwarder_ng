@@ -25,6 +25,7 @@
 
 using std::string;
 
+// WARNING: should be thread-safe.
 class Crypto {
 public:
     Crypto() = default;
@@ -107,6 +108,7 @@ private:
     size_t dict_current_index = 0;
 
     struct {
+        // This rand is just QUICK and good enough. Maybe still good enough for multi-threading.
         uint64_t x=123456789, y=362436069, z=521288629;
         uint64_t get() {
             uint64_t t;
