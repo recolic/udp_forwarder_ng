@@ -8,7 +8,7 @@
 #include <string>
 #include <numeric>
 #include <limits>
-#include "Dictionary.hpp"
+#include "Config.hpp"
 
 #if defined(__linux__)
 #  include <endian.h>
@@ -25,10 +25,12 @@
 
 using std::string;
 
+// WARNING: should be thread-safe.
 class Crypto {
 public:
     Crypto() = default;
     void convertL2R(string &data, const string &lKey, const string &rKey) {
+        // If data is empty, maybe it's a bare control msg: a exception maybe thrown.
         // If lKey is not null, decrypt the data.
         // If rKey is not null, encrypt the data.
         if(!lKey.empty()) {
@@ -85,6 +87,8 @@ private:
         if(data.size() < 8)
             throw std::runtime_error("Decrypt: Data length less than 8. ");
         string nonce = data.substr(0, 8);
+        if(uint64FromBinStr(nonce) == 0)
+            throw std::runtime_error("Bad nonce: nonce is zero: ctl msg not fucked.");
 
         string toDecrypt = data.substr(8);
         block_decrypt(toDecrypt, key, nonce);
@@ -106,6 +110,7 @@ private:
     size_t dict_current_index = 0;
 
     struct {
+        // This rand is just QUICK and good enough. Maybe still good enough for multi-threading.
         uint64_t x=123456789, y=362436069, z=521288629;
         uint64_t get() {
             uint64_t t;
@@ -118,7 +123,10 @@ private:
             y = z;
             z = t ^ x ^ y;
 
-            return z;
+            if(z != 0) // nonce can not be zero. zero nonce means control message.
+                return z;
+            else
+                return get();
         }
     } xorshf_rand;
 

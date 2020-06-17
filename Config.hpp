@@ -3,8 +3,19 @@
 
 #include <string>
 
-const std::string crypto_dictionary = R"RSTR(
+// DGRAM packet usually smaller than 1400B.
+constexpr size_t DGRAM_BUFFER_SIZE = 20480; // 20KiB
+// epoll buffer size.
+constexpr size_t MAX_EVENTS = 16;
 
+// Change a connection on every n seconds,
+//   to reset the GFW deep-packet-inspection process.
+// ( Only if server side is encrypted, so nothing happens
+//   to the real openvpn server.
+constexpr size_t SERVER_ENCRYPT_CONNECTION_TIMEOUT_SECONDS = 60;
+
+// a random long string to fill the buffer.
+const std::string crypto_dictionary = R"RSTR(
 Optimizing C++/Code optimization/Faster operations
 < Optimizing C++‎ | Code optimization
 Jump to navigationJump to search

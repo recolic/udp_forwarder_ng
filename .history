@@ -1,0 +1,113 @@
+commit 9450db11a189b4099ca8c5d4ccc4f303e2ee2320
+Author: Recolic <root@recolic.net>
+Date:   Sun Jun 30 16:02:28 2019 +0800
+
+    Update README.md
+
+commit abbf82bfeba26c28a470447d3311236817e96d42
+Author: Recolic Keghart <root@recolic.net>
+Date:   Tue Jun 11 21:33:38 2019 +0800
+
+    remove packed struct
+
+commit afed693fefd78a73dfd97e1b3929d619720b860a
+Author: Recolic Keghart <root@recolic.net>
+Date:   Tue Jun 11 21:33:30 2019 +0800
+
+    remove packed struct
+
+commit 65ee23e090436f761ceb30fbff53638207d150de
+Author: Recolic Keghart <root@recolic.net>
+Date:   Tue Jun 11 21:30:19 2019 +0800
+
+    update cmake
+
+commit 9f58b2ad47bddfdd338217f88a9491327a2d5f62
+Author: Recolic Keghart <root@recolic.net>
+Date:   Tue Jun 11 21:27:26 2019 +0800
+
+    Done. Dynamic connection tested. (UDP lost control packet not tested!)
+
+commit 0badf744588c7e19b3ffbc02b9d384fb3ca8c669
+Author: Recolic Keghart <root@recolic.net>
+Date:   Tue Jun 11 02:52:51 2019 +0800
+
+    DO NOT BUILD: finished but not debugged
+
+commit 13c1c79f50f28f365cc6938462047de9f9e37d3d
+Author: Recolic Keghart <root@recolic.net>
+Date:   Mon Jun 10 18:57:58 2019 +0800
+
+    update readme
+
+commit ae8ba24d6bdd5218bc3db1a9fe364b27b32b55ca
+Author: Recolic <root@recolic.net>
+Date:   Mon Jun 10 18:52:33 2019 +0800
+
+    Create LICENSE
+
+commit 35225ec5403aa1a3b69b42c994c41954da096be6
+Author: Recolic <root@recolic.net>
+Date:   Mon Jun 10 18:49:57 2019 +0800
+
+    Update README.md
+
+commit a51bf7957bdaaf8531c76f2750742eb40ba06002
+Author: Recolic Keghart <root@recolic.net>
+Date:   Mon Jun 10 18:49:00 2019 +0800
+
+    finished
+
+commit 3d48635f4dafba301574e8162296cb08dde36b0a
+Author: Recolic Keghart <root@recolic.net>
+Date:   Mon Jun 10 18:05:26 2019 +0800
+
+    bug fix
+
+commit 79da4564218eed98cecf2a9ec3866a7e0ca142e6
+Author: Recolic Keghart <root@recolic.net>
+Date:   Mon Jun 10 14:40:12 2019 +0800
+
+    bug fix
+
+commit 0675b0afedb596c141f49017ee7faf922419e068
+Author: Recolic Keghart <root@recolic.net>
+Date:   Mon Jun 10 13:26:20 2019 +0800
+
+    DO NOT BUILD: A failing version for TCP
+
+commit 58aa632ca4ddb281b92a3e1c311f7738471c805f
+Author: Recolic Keghart <root@recolic.net>
+Date:   Mon Jun 10 12:57:38 2019 +0800
+
+    seems working. push to server before cleanup
+
+commit ba09af0f49fcbb5abaa1b89cf7a536ae8cfc90e7
+Author: Recolic Keghart <root@recolic.net>
+Date:   Mon Jun 10 11:55:23 2019 +0800
+
+    bugfix
+
+commit a85df551ee45be323cad86109d41b022338b8b69
+Author: Recolic Keghart <root@recolic.net>
+Date:   Mon Jun 10 02:14:35 2019 +0800
+
+    bugfix
+
+commit 0c6943999f34bdf8f7fb6ae3b42c437b1c9aefac
+Author: Recolic Keghart <root@recolic.net>
+Date:   Mon Jun 10 01:56:48 2019 +0800
+
+    bugfix
+
+commit 956b8af2b912e6f3983a4c621ff74e27d2280a4b
+Author: Recolic Keghart <root@recolic.net>
+Date:   Mon Jun 10 01:52:24 2019 +0800
+
+    init
+
+commit 8cf5faddaa33926c98905dfd0184c2b39f61c5f6
+Author: Recolic Keghart <root@recolic.net>
+Date:   Mon Jun 10 01:50:11 2019 +0800
+
+    init
