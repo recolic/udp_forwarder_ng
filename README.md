@@ -1,3 +1,7 @@
+# DEPRECATED: USE https://github.com/recolic/udp-forwarder-ex
+
+------------
+
 # UDP forwarder
 
 A simple **UNSAFE** tool to encrypt / hide your UDP packets. Trying to trick The Great Firewall deep learning VPN detection
